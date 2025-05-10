@@ -1,0 +1,140 @@
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Torneo Terme di Venturina 2025</title>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    h2 { margin-top: 40px; }
+    table, th, td { border: 1px solid #000; border-collapse: collapse; padding: 5px; }
+    input[type="number"] { width: 50px; }
+  </style>
+</head>
+<body>
+  <h1>Gestione Torneo Terme di Venturina 2025</h1>
+
+  <div id="app"></div>
+
+  <script>
+    const gironi = {
+      A: ["ASD Venturina Celeste", "Palazzi", "Foce La Spezia", "Fiorentina"],
+      B: ["ASD Venturina Bianco", "Tancredi", "Academy Tau", "Follo"],
+      C: ["Amaranto Tau", "Academy QM Massarosa", "Fucecchio"]
+    };
+
+    const risultati = { A: [], B: [], C: [] };
+    let classificheFinali = {};
+
+    const creaInputPartite = (girone) => {
+      const squadre = gironi[girone];
+      let html = `<h2>Girone ${girone}</h2><table><tr><th>Squadra 1</th><th>Gol</th><th>Gol</th><th>Squadra 2</th></tr>`;
+      for (let i = 0; i < squadre.length; i++) {
+        for (let j = i + 1; j < squadre.length; j++) {
+          html += `
+            <tr>
+              <td>${squadre[i]}</td>
+              <td><input type="number" min="0" data-girone="${girone}" data-s1="${squadre[i]}" data-s2="${squadre[j]}" class="gol1"></td>
+              <td><input type="number" min="0" data-girone="${girone}" data-s1="${squadre[i]}" data-s2="${squadre[j]}" class="gol2"></td>
+              <td>${squadre[j]}</td>
+            </tr>`;
+        }
+      }
+      html += `</table>`;
+      return html;
+    };
+
+    const creaClassifiche = () => {
+      const classifiche = { A: {}, B: {}, C: {} };
+
+      for (let girone in gironi) {
+        gironi[girone].forEach(s => {
+          classifiche[girone][s] = { punti: 0, gf: 0, gs: 0, diff: 0 };
+        });
+
+        const inputs = document.querySelectorAll(`input[data-girone="${girone}"]`);
+        for (let i = 0; i < inputs.length; i += 2) {
+          const g1 = parseInt(inputs[i].value || 0);
+          const g2 = parseInt(inputs[i + 1].value || 0);
+          const s1 = inputs[i].dataset.s1;
+          const s2 = inputs[i].dataset.s2;
+
+          classifiche[girone][s1].gf += g1;
+          classifiche[girone][s1].gs += g2;
+          classifiche[girone][s2].gf += g2;
+          classifiche[girone][s2].gs += g1;
+
+          if (g1 > g2) classifiche[girone][s1].punti += 3;
+          else if (g1 < g2) classifiche[girone][s2].punti += 3;
+          else { classifiche[girone][s1].punti += 1; classifiche[girone][s2].punti += 1; }
+        }
+
+        for (let s in classifiche[girone]) {
+          classifiche[girone][s].diff = classifiche[girone][s].gf - classifiche[girone][s].gs;
+        }
+      }
+
+      classificheFinali = {};
+      let html = "";
+      for (let girone in classifiche) {
+        html += `<h2>Classifica Girone ${girone}</h2><table><tr><th>Squadra</th><th>Punti</th><th>GF</th><th>GS</th><th>Diff</th></tr>`;
+        const squadre = Object.entries(classifiche[girone]).sort((a, b) => {
+          if (b[1].punti !== a[1].punti) return b[1].punti - a[1].punti;
+          if (b[1].diff !== a[1].diff) return b[1].diff - a[1].diff;
+          return b[1].gf - a[1].gf;
+        });
+        classificheFinali[girone] = squadre.map(([s]) => s);
+        for (let [s, d] of squadre) {
+          html += `<tr><td>${s}</td><td>${d.punti}</td><td>${d.gf}</td><td>${d.gs}</td><td>${d.diff}</td></tr>`;
+        }
+        html += `</table>`;
+      }
+
+      document.getElementById("classifiche").innerHTML = html + creaFaseFinale();
+    };
+
+    const creaFaseFinale = () => {
+      if (!classificheFinali.A || !classificheFinali.B || !classificheFinali.C) return "";
+
+      const get2Migliori = () => {
+        const secondi = [
+          { girone: "A", squadra: classificheFinali.A[1] },
+          { girone: "B", squadra: classificheFinali.B[1] }
+        ];
+        return [secondi[0].squadra, secondi[1].squadra];
+      };
+
+      const oro = [
+        classificheFinali.A[0], classificheFinali.B[0], classificheFinali.C[0], get2Migliori()[0]
+      ];
+
+      const argento = [
+        get2Migliori()[1],
+        classificheFinali.C[1], classificheFinali.B[2], classificheFinali.A[2]
+      ];
+
+      const bronzo = [
+        classificheFinali.C[2], classificheFinali.B[3], classificheFinali.A[3]
+      ];
+
+      let html = "<h2>Fase Finale - Gironi</h2>";
+
+      const creaTabella = (nome, squadre) => {
+        let r = `<h3>Girone ${nome}</h3><ul>`;
+        for (let s of squadre) r += `<li>${s}</li>`;
+        return r + "</ul>";
+      };
+
+      html += creaTabella("ORO", oro);
+      html += creaTabella("ARGENTO", argento);
+      html += creaTabella("BRONZO", bronzo);
+      return html;
+    };
+
+    const app = document.getElementById("app");
+    app.innerHTML = ["A", "B", "C"].map(creaInputPartite).join("") +
+      '<br><button onclick="creaClassifiche()">Genera Classifiche e Fase Finale</button><div id="classifiche"></div>';
+  </script>
+</body>
+</html>
